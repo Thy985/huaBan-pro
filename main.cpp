@@ -1043,7 +1043,7 @@ void DeleteLayer(int index) {
         
         // 调整当前图层索引
         if (currentLayer >= static_cast<int>(layers.size())) { // 显式类型转换以避免警告
-            currentLayer = layers.size() - 1;
+            currentLayer = static_cast<int>(layers.size() - 1); // 显式类型转换，避免数据丢失
         }
         
         needCanvasUpdate = true;
@@ -1449,11 +1449,11 @@ void AddAnimationFrame() {
     
     // 添加到帧列表
     animationFrames.push_back(newFrame);
-    currentFrameIndex = animationFrames.size() - 1;
+    currentFrameIndex = static_cast<int>(animationFrames.size() - 1); // 显式类型转换，避免数据丢失
     
     // 显示帧添加成功提示
     wchar_t msg[100];
-    swprintf(msg, 100, L"添加新帧成功，当前帧: %d/%d", currentFrameIndex + 1, animationFrames.size());
+    swprintf(msg, 100, L"添加新帧成功，当前帧: %d/%d", currentFrameIndex + 1, static_cast<int>(animationFrames.size())); // 显式类型转换
     // 在实际应用中，这里应该有一个消息显示机制
 }
 
@@ -1465,8 +1465,8 @@ void DeleteAnimationFrame() {
     animationFrames.erase(animationFrames.begin() + currentFrameIndex);
     
     // 调整当前帧索引
-    if (currentFrameIndex >= animationFrames.size()) {
-        currentFrameIndex = animationFrames.size() - 1;
+    if (currentFrameIndex >= static_cast<int>(animationFrames.size())) { // 显式类型转换以避免警告
+        currentFrameIndex = static_cast<int>(animationFrames.size() - 1); // 显式类型转换，避免数据丢失
     }
     
     // 加载当前帧内容到画布
