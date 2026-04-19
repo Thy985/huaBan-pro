@@ -38,6 +38,13 @@ void UI::InitButtons() {
         { 80, 370, 60, 30, L"下一帧", BTN_NEXT_FRAME, true, true, false, false },
         { 150, 370, 50, 30, L"播放", BTN_PLAY_ANIMATION, true, true, false, false },
         { 10, 410, 190, 30, L"导出GIF", BTN_EXPORT_GIF, true, true, false, false },
+        // 图层按钮
+        { 10, 450, 60, 30, L"添加层", BTN_ADD_LAYER, true, true, false, false },
+        { 80, 450, 60, 30, L"删除层", BTN_REMOVE_LAYER, true, true, false, false },
+        { 150, 450, 50, 30, L"复制层", BTN_DUPLICATE_LAYER, true, true, false, false },
+        { 10, 490, 60, 30, L"上移", BTN_MOVE_LAYER_UP, true, true, false, false },
+        { 80, 490, 60, 30, L"下移", BTN_MOVE_LAYER_DOWN, true, true, false, false },
+        { 150, 490, 50, 30, L"显隐", BTN_TOGGLE_LAYER_VISIBILITY, true, true, false, false },
     };
 }
 
@@ -55,6 +62,7 @@ void UI::InitPalette() {
 
 void UI::Draw(const Canvas& canvas, const Tools& tools) {
     DrawButtons(tools);
+    DrawLayerList(canvas);
     DrawPalette();
     DrawInfo(canvas, tools);
 }
@@ -109,7 +117,7 @@ void UI::DrawButtons(const Tools& tools) {
 
 void UI::DrawPalette() {
     int paletteX = 20;
-    int paletteY = 450;
+    int paletteY = 570;
     int colorSize = 20;
     int colorSpacing = 25;
     
@@ -193,7 +201,7 @@ Button* UI::FindButton(int x, int y) {
 
 int UI::FindPaletteColor(int x, int y) {
     int paletteX = 20;
-    int paletteY = 450;
+    int paletteY = 570;
     int colorSize = 20;
     int colorSpacing = 25;
     
@@ -240,4 +248,64 @@ void UI::AddRecentColor(COLORREF color) {
     
     recentColors[0] = color;
     recentColorCount++;
+}
+
+void UI::DrawLayerList(const Canvas& canvas) {
+    int listX = 10;
+    int listY = 530;
+    int itemHeight = 30;
+    int itemWidth = UI_WIDTH - 20;
+    
+    settextcolor(WHITE);
+    outtextxy(listX, listY - 20, L"图层列表");
+    
+    const LayerManager& layerManager = canvas.GetLayerManager();
+    int layerCount = layerManager.GetLayerCount();
+    int activeIndex = layerManager.GetCurrentLayerIndex();
+    
+    for (int i = 0; i < layerCount; i++) {
+        const Layer* layer = layerManager.GetLayer(i);
+        if (!layer) continue;
+        
+        int y = listY + (layerCount - 1 - i) * itemHeight; // 显示顺序反转，让最新的图层在上面
+        
+        // 绘制图层项背景
+        COLORREF bgColor = (i == activeIndex) ? COLOR_ACT : COLOR_BTN;
+        setfillcolor(bgColor);
+        setlinecolor(RGB(100, 100, 100));
+        fillrectangle(listX, y, listX + itemWidth, y + itemHeight - 2);
+        
+        // 绘制可见性图标
+        setfillcolor(layer->IsVisible() ? GREEN : RED);
+        solidcircle(listX + 15, y + itemHeight / 2, 6);
+        
+        // 绘制图层名称
+        std::string layerName = layer->GetName();
+        wchar_t wlayerName[256];
+        MultiByteToWideChar(CP_UTF8, 0, layerName.c_str(), -1, wlayerName, 256);
+        
+        settextcolor(WHITE);
+        setbkmode(TRANSPARENT);
+        outtextxy(listX + 30, y + 7, wlayerName);
+    }
+}
+
+int UI::FindLayerClick(int x, int y, const Canvas& canvas) {
+    int listX = 10;
+    int listY = 530;
+    int itemHeight = 30;
+    int itemWidth = UI_WIDTH - 20;
+    
+    const LayerManager& layerManager = canvas.GetLayerManager();
+    int layerCount = layerManager.GetLayerCount();
+    
+    for (int i = 0; i < layerCount; i++) {
+        int y2 = listY + (layerCount - 1 - i) * itemHeight;
+        
+        if (x >= listX && x <= listX + itemWidth && y >= y2 && y <= y2 + itemHeight - 2) {
+            return i;
+        }
+    }
+    
+    return -1;
 }

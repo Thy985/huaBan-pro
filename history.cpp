@@ -6,7 +6,7 @@ History::History(int maxSize)
 
 void History::SaveState(const Canvas& canvas) {
     HistoryState state;
-    canvas.CopyTo(state.data);
+    canvas.SaveStateToHistory(state);
     
     undoStack.push_back(state);
     
@@ -21,24 +21,24 @@ void History::Undo(Canvas& canvas) {
     if (!CanUndo()) return;
     
     HistoryState currentState;
-    canvas.CopyTo(currentState.data);
+    canvas.SaveStateToHistory(currentState);
     redoStack.push_back(currentState);
     
     HistoryState state = undoStack.back();
     undoStack.pop_back();
-    canvas.CopyFrom(state.data);
+    canvas.LoadStateFromHistory(state);
 }
 
 void History::Redo(Canvas& canvas) {
     if (!CanRedo()) return;
     
     HistoryState currentState;
-    canvas.CopyTo(currentState.data);
+    canvas.SaveStateToHistory(currentState);
     undoStack.push_back(currentState);
     
     HistoryState state = redoStack.back();
     redoStack.pop_back();
-    canvas.CopyFrom(state.data);
+    canvas.LoadStateFromHistory(state);
 }
 
 void History::Clear() {

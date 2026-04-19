@@ -6,6 +6,7 @@
 #include "fileio.h"
 #include "filter.h"
 #include "animation.h"
+#include "layer.h"
 
 class PixelEditor {
 private:
@@ -173,6 +174,47 @@ void PixelEditor::ProcessButtonClick(Button* btn) {
         case BTN_EXPORT_GIF:
             animation.ExportToGIF("animation.gif");
             break;
+        // 图层按钮
+        case BTN_ADD_LAYER: {
+            history.SaveState(canvas);
+            int newIndex = canvas.GetLayerManager().AddLayer();
+            std::string layerName = "Layer " + std::to_string(newIndex + 1);
+            Layer* newLayer = canvas.GetLayerManager().GetActiveLayer();
+            if (newLayer) newLayer->SetName(layerName);
+            break;
+        }
+        case BTN_REMOVE_LAYER:
+            if (canvas.GetLayerManager().GetLayerCount() > 1) {
+                history.SaveState(canvas);
+                canvas.GetLayerManager().RemoveLayer(canvas.GetLayerManager().GetCurrentLayerIndex());
+            }
+            break;
+        case BTN_DUPLICATE_LAYER: {
+            history.SaveState(canvas);
+            int currentIndex = canvas.GetLayerManager().GetCurrentLayerIndex();
+            canvas.GetLayerManager().DuplicateLayer(currentIndex);
+            Layer* newLayer = canvas.GetLayerManager().GetActiveLayer();
+            if (newLayer) newLayer->SetName(newLayer->GetName() + " Copy");
+            break;
+        }
+        case BTN_MOVE_LAYER_UP:
+            if (canvas.GetLayerManager().GetCurrentLayerIndex() > 0) {
+                history.SaveState(canvas);
+                canvas.GetLayerManager().MoveLayerUp(canvas.GetLayerManager().GetCurrentLayerIndex());
+            }
+            break;
+        case BTN_MOVE_LAYER_DOWN:
+            if (canvas.GetLayerManager().GetCurrentLayerIndex() < canvas.GetLayerManager().GetLayerCount() - 1) {
+                history.SaveState(canvas);
+                canvas.GetLayerManager().MoveLayerDown(canvas.GetLayerManager().GetCurrentLayerIndex());
+            }
+            break;
+        case BTN_TOGGLE_LAYER_VISIBILITY: {
+            history.SaveState(canvas);
+            Layer* activeLayer = canvas.GetLayerManager().GetActiveLayer();
+            if (activeLayer) activeLayer->SetVisible(!activeLayer->IsVisible());
+            break;
+        }
     }
 }
 
@@ -190,16 +232,23 @@ void PixelEditor::HandleMouse() {
                 if (btn) {
                     ProcessButtonClick(btn);
                 } else {
-                    int colorIdx = ui.FindPaletteColor(msg.x, msg.y);
-                    if (colorIdx >= 0 && colorIdx < 16) {
-                        COLORREF paletteColors[16] = {
-                            BLACK, WHITE, RGB(200,200,200), RGB(100,100,100),
-                            RED, GREEN, BLUE, RGB(255,255,0),
-                            RGB(255,165,0), RGB(128,0,128), RGB(0,255,255), RGB(255,192,203),
-                            RGB(139,69,19), RGB(34,139,34), RGB(75,0,130), RGB(255,215,0)
-                        };
-                        tools.SetColor(paletteColors[colorIdx]);
-                        ui.AddRecentColor(paletteColors[colorIdx]);
+                    int layerIdx = ui.FindLayerClick(msg.x, msg.y, canvas);
+                    if (layerIdx >= 0) {
+                        // 点击了图层列表项，切换当前活动图层
+                        history.SaveState(canvas);
+                        canvas.GetLayerManager().SetCurrentLayer(layerIdx);
+                    } else {
+                        int colorIdx = ui.FindPaletteColor(msg.x, msg.y);
+                        if (colorIdx >= 0 && colorIdx < 16) {
+                            COLORREF paletteColors[16] = {
+                                BLACK, WHITE, RGB(200,200,200), RGB(100,100,100),
+                                RED, GREEN, BLUE, RGB(255,255,0),
+                                RGB(255,165,0), RGB(128,0,128), RGB(0,255,255), RGB(255,192,203),
+                                RGB(139,69,19), RGB(34,139,34), RGB(75,0,130), RGB(255,215,0)
+                            };
+                            tools.SetColor(paletteColors[colorIdx]);
+                            ui.AddRecentColor(paletteColors[colorIdx]);
+                        }
                     }
                 }
             } else {

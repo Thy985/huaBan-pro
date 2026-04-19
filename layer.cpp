@@ -124,6 +124,28 @@ void LayerManager::RemoveLayer(int index) {
     }
 }
 
+void LayerManager::DuplicateLayer(int index) {
+    if (index >= 0 && index < layers.size()) {
+        const Layer* original = layers[index];
+        Layer* newLayer = new Layer(original->GetName());
+        
+        // 复制像素数据
+        for (int x = 0; x < GRID_NUM; x++) {
+            for (int y = 0; y < GRID_NUM; y++) {
+                newLayer->SetPixel(x, y, original->GetPixel(x, y));
+            }
+        }
+        
+        // 复制其他属性
+        newLayer->SetVisible(original->IsVisible());
+        newLayer->SetOpacity(original->GetOpacity());
+        
+        // 插入到原图层后面
+        layers.insert(layers.begin() + index + 1, newLayer);
+        activeLayerIndex = index + 1;
+    }
+}
+
 void LayerManager::MoveLayerUp(int index) {
     if (index > 0 && index < layers.size()) {
         std::swap(layers[index], layers[index - 1]);

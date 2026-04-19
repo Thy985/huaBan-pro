@@ -50,6 +50,7 @@ public:
     // 图层管理
     int AddLayer(const std::string& name = "New Layer");
     void RemoveLayer(int index);
+    void DuplicateLayer(int index);
     void MoveLayerUp(int index);
     void MoveLayerDown(int index);
     

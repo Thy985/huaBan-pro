@@ -184,3 +184,59 @@ void Canvas::CopyFrom(const COLORREF src[GRID_NUM][GRID_NUM]) {
     }
     needUpdate = true;
 }
+
+void Canvas::SaveStateToHistory(HistoryState& state) const {
+    const LayerManager& manager = GetLayerManager();
+    state.activeLayerIndex = manager.GetCurrentLayerIndex();
+    state.layerStates.clear();
+    
+    for (int i = 0; i < manager.GetLayerCount(); i++) {
+        const Layer* layer = manager.GetLayer(i);
+        if (!layer) continue;
+        
+        LayerHistoryState layerState;
+        layerState.visible = layer->IsVisible();
+        layerState.opacity = layer->GetOpacity();
+        layerState.name = layer->GetName();
+        
+        for (int x = 0; x < GRID_NUM; x++) {
+            for (int y = 0; y < GRID_NUM; y++) {
+                layerState.pixels[y][x] = layer->GetPixel(x, y);
+            }
+        }
+        
+        state.layerStates.push_back(layerState);
+    }
+}
+
+void Canvas::LoadStateFromHistory(const HistoryState& state) {
+    LayerManager& manager = GetLayerManager();
+    
+    // 清理现有图层
+    while (manager.GetLayerCount() > 0) {
+        manager.RemoveLayer(0);
+    }
+    
+    // 添加新图层
+    for (size_t i = 0; i < state.layerStates.size(); i++) {
+        const LayerHistoryState& layerState = state.layerStates[i];
+        
+        std::string layerName = layerState.name;
+        manager.AddLayer(layerName);
+        Layer* newLayer = manager.GetLayer(manager.GetLayerCount() - 1);
+        
+        if (newLayer) {
+            newLayer->SetVisible(layerState.visible);
+            newLayer->SetOpacity(layerState.opacity);
+            
+            for (int x = 0; x < GRID_NUM; x++) {
+                for (int y = 0; y < GRID_NUM; y++) {
+                    newLayer->SetPixel(x, y, layerState.pixels[y][x]);
+                }
+            }
+        }
+    }
+    
+    manager.SetCurrentLayer(state.activeLayerIndex);
+    needUpdate = true;
+}

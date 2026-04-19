@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <Windows.h>
+#include "layer.h"
 
 // ============ 常量定义 ============
 #define GRID_NUM        32
@@ -12,7 +13,7 @@
 #define CANVAS_H        (GRID_NUM * CELL_SIZE)
 #define UI_WIDTH        220
 #define WIN_W           (CANVAS_W + UI_WIDTH)
-#define WIN_H           CANVAS_H
+#define WIN_H           640
 #define MAX_HISTORY     50
 
 // 颜色定义
@@ -84,6 +85,14 @@ enum ToolType {
 #define BTN_PLAY_ANIMATION 45
 #define BTN_EXPORT_GIF  46
 
+// 图层按钮
+#define BTN_ADD_LAYER   50
+#define BTN_REMOVE_LAYER 51
+#define BTN_DUPLICATE_LAYER 52
+#define BTN_MOVE_LAYER_UP 53
+#define BTN_MOVE_LAYER_DOWN 54
+#define BTN_TOGGLE_LAYER_VISIBILITY 55
+
 // ============ 数据结构 ============
 struct Button {
     int x, y;
@@ -96,6 +105,16 @@ struct Button {
     bool isToggled;
 };
 
+// 单个图层的历史状态
+struct LayerHistoryState {
+    COLORREF pixels[GRID_NUM][GRID_NUM];
+    bool visible;
+    int opacity;
+    std::string name;
+};
+
+// 整个画布的历史状态
 struct HistoryState {
-    COLORREF data[GRID_NUM][GRID_NUM];
+    std::vector<LayerHistoryState> layerStates;
+    int activeLayerIndex;
 };

@@ -22,6 +22,8 @@ public:
     void DrawButtons(const Tools& tools);
     void DrawPalette();
     void DrawInfo(const Canvas& canvas, const Tools& tools);
+    void DrawLayerList(const Canvas& canvas);
+    int FindLayerClick(int x, int y, const Canvas& canvas);
     
     bool IsButtonClicked(const Button& btn, int x, int y) const;
     Button* FindButton(int x, int y);

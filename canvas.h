@@ -42,6 +42,8 @@ public:
     void CopyFrom(const Canvas& other);
     void CopyTo(COLORREF dest[GRID_NUM][GRID_NUM]) const;
     void CopyFrom(const COLORREF src[GRID_NUM][GRID_NUM]);
+    void SaveStateToHistory(HistoryState& state) const;
+    void LoadStateFromHistory(const HistoryState& state);
     
     bool NeedUpdate() const { return needUpdate; }
     void SetNeedUpdate(bool need) { needUpdate = need; }
