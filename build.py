@@ -23,22 +23,15 @@ import ctypes
 import platform
 import logging
 
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('build.log'),
-        logging.StreamHandler()
-    ]
-)
+# 配置日志（将在setup_logging中重新配置）
 logger = logging.getLogger(__name__)
 
 # 全局变量
 PROJECT_NAME = "huaBan-pro"
 # 注意：EasyX 官方下载链接可能会变化，请访问官网获取最新版本
-EASYX_URL = "https://easyx.cn/download/EasyX_20241018.exe"  # 更新为最新版本
+# 自动检测最新版本的 EasyX 下载链接
 EASYX_WEBSITE = "https://easyx.cn/"
+EASYX_DOWNLOAD_PAGE = "https://easyx.cn/download.html"
 CMAKE_URL = "https://github.com/Kitware/CMake/releases/download/v3.30.3/cmake-3.30.3-windows-x86_64.zip"
 CMAKE_WEBSITE = "https://cmake.org/download/"
 MSVC_WEBSITE = "https://visualstudio.microsoft.com/visual-cpp-build-tools/"
@@ -50,6 +43,96 @@ INSTALL_MODES = {
     "manual": "手动安装（跳过自动安装，仅检查）",
     "winget": "使用 winget 安装编译器",
 }
+
+# 修复 Windows 命令行编码问题
+def setup_logging():
+    """设置日志，确保在 Windows 命令行中正确显示中文"""
+    import io
+    import sys
+    # 修复 stdout 编码
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+    
+    # 配置日志
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler('build.log', encoding='utf-8'),
+            logging.StreamHandler()
+        ]
+    )
+    return logging.getLogger(__name__)
+
+# 从 EasyX 官网获取最新的下载链接
+def get_latest_easyx_url():
+    """从 EasyX 官网获取最新的下载链接"""
+    try:
+        import re
+        import urllib.parse
+        logger.info("尝试从 EasyX 官网获取最新下载链接...")
+        
+        # 尝试不同的下载页面URL
+        download_pages = [
+            "https://easyx.cn/download",
+            "https://easyx.cn/download.html",
+            "https://www.easyx.cn/download",
+            "https://www.easyx.cn/download.html"
+        ]
+        
+        for page_url in download_pages:
+            try:
+                logger.info(f"尝试访问: {page_url}")
+                with urllib.request.urlopen(page_url, timeout=10) as response:
+                    html = response.read().decode('utf-8')
+                
+                # 查找下载链接
+                pattern = r'https://[^"\']*EasyX[^"\']*\.exe'
+                matches = re.findall(pattern, html)
+                
+                # 过滤并选择有效的链接
+                for url in matches:
+                    try:
+                        # 检查URL是否包含非ASCII字符
+                        url.encode('ascii')
+                        # 测试链接是否有效
+                        logger.info(f"测试找到的链接: {url}")
+                        with urllib.request.urlopen(url, timeout=5) as response:
+                            if response.getcode() == 200:
+                                logger.info(f"找到有效的 EasyX 下载链接: {url}")
+                                return url
+                    except Exception as e:
+                        logger.warning(f"链接 {url} 无效: {str(e)}")
+            except Exception as e:
+                logger.warning(f"访问 {page_url} 失败: {str(e)}")
+        
+        logger.warning("无法从官网获取最新下载链接，使用默认链接")
+        
+        # 提供多个备用链接
+        fallback_urls = [
+            "https://easyx.cn/download/EasyX_20241018.exe",
+            "https://easyx.cn/download/EasyX_20220901.exe",
+            "https://easyx.cn/download/EasyX_20210730.exe",
+            "https://easyx.cn/download/EasyX_20200902.exe"
+        ]
+        
+        # 测试备用链接是否有效
+        for url in fallback_urls:
+            try:
+                logger.info(f"测试备用链接: {url}")
+                with urllib.request.urlopen(url, timeout=5) as response:
+                    if response.getcode() == 200:
+                        logger.info(f"找到有效的备用链接: {url}")
+                        return url
+            except Exception as e:
+                logger.warning(f"测试链接 {url} 失败: {str(e)}")
+        
+        # 如果所有链接都失败，返回一个最可能的链接
+        return "https://easyx.cn/download/EasyX_20241018.exe"
+    except Exception as e:
+        logger.error(f"获取 EasyX 下载链接失败: {str(e)}")
+        # 返回一个可能的链接
+        return "https://easyx.cn/download/EasyX_20241018.exe"
 
 # 检查Python版本
 def check_python_version():
@@ -122,8 +205,10 @@ def install_easyx():
     easyx_exe = os.path.join(temp_dir, "EasyX.exe")
     
     try:
-        logger.info(f"尝试从官方网站下载: {EASYX_URL}")
-        download_file(EASYX_URL, easyx_exe)
+        # 获取最新的 EasyX 下载链接
+        easyx_url = get_latest_easyx_url()
+        logger.info(f"尝试从官方网站下载: {easyx_url}")
+        download_file(easyx_url, easyx_exe)
         
         logger.info("运行 EasyX 安装程序...")
         subprocess.run([easyx_exe], check=True)
@@ -388,6 +473,10 @@ def show_welcome():
 
 # 主函数
 def main():
+    # 修复编码问题
+    global logger
+    logger = setup_logging()
+    
     # 解析命令行参数
     args = parse_args()
     
@@ -417,9 +506,9 @@ def main():
     if args.install_mode in ["auto", "winget"]:
         winget_available = check_winget()
         if winget_available:
-            logger.info("✅ winget 可用，将尝试使用它安装依赖")
+            logger.info("[OK] winget 可用，将尝试使用它安装依赖")
         else:
-            logger.warning("⚠️ winget 不可用，将尝试其他安装方法")
+            logger.warning("[WARN] winget 不可用，将尝试其他安装方法")
     
     try:
         # 检查并安装 EasyX
@@ -429,15 +518,15 @@ def main():
                 if args.install_mode != "manual":
                     install_easyx()
             else:
-                logger.info("✅ EasyX 已安装")
+                logger.info("[OK] EasyX 已安装")
         else:
-            logger.info("⏭️ 跳过 EasyX 安装检查")
+            logger.info("[SKIP] 跳过 EasyX 安装检查")
         
         # 检查并安装 CMake
         if not args.skip_cmake:
             if not command_exists("cmake"):
                 if args.install_mode == "manual":
-                    logger.error("❌ 请手动安装 CMake")
+                    logger.error("[ERROR] 请手动安装 CMake")
                     return 1
                 # 先尝试 winget，失败则用传统方法
                 if winget_available and install_cmake_winget():
@@ -445,9 +534,9 @@ def main():
                 elif not install_cmake():
                     return 1
             else:
-                logger.info("✅ CMake 已安装")
+                logger.info("[OK] CMake 已安装")
         else:
-            logger.info("⏭️ 跳过 CMake 安装检查")
+            logger.info("[SKIP] 跳过 CMake 安装检查")
         
         # 检查并安装编译器
         compiler_found = command_exists("cl") or command_exists("g++")
@@ -467,7 +556,7 @@ def main():
                 
                 # 再次检查编译器
                 if not check_compiler():
-                    logger.error("❌ 编译器安装失败，请手动安装")
+                    logger.error("[ERROR] 编译器安装失败，请手动安装")
                     return 1
         
         # 构建项目
@@ -481,18 +570,18 @@ def main():
         if not args.build_only:
             run_application()
         else:
-            logger.info("✅ 构建完成，跳过运行步骤")
+            logger.info("[OK] 构建完成，跳过运行步骤")
         
         logger.info("=" * 60)
-        logger.info("🎉 构建脚本执行完成!")
+        logger.info("构建脚本执行完成!")
         logger.info("=" * 60)
         return 0
     except Exception as e:
-        logger.error(f"❌ 构建过程中发生错误: {str(e)}")
+        logger.error(f"[ERROR] 构建过程中发生错误: {str(e)}")
         import traceback
         logger.debug(traceback.format_exc())
         logger.info("")
-        logger.info("💡 提示:")
+        logger.info("提示:")
         logger.info("1. 请确保以管理员身份运行")
         logger.info("2. 如果自动安装失败，请参考手动安装指南")
         logger.info("3. 运行 --help 查看更多选项")
