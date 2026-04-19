@@ -44,6 +44,13 @@ CMAKE_WEBSITE = "https://cmake.org/download/"
 MSVC_WEBSITE = "https://visualstudio.microsoft.com/visual-cpp-build-tools/"
 MINGW_WEBSITE = "https://www.mingw-w64.org/downloads/"
 
+# 安装模式配置
+INSTALL_MODES = {
+    "auto": "自动安装所有依赖（推荐）",
+    "manual": "手动安装（跳过自动安装，仅检查）",
+    "winget": "使用 winget 安装编译器",
+}
+
 # 检查Python版本
 def check_python_version():
     logger.info("检查Python版本...")
@@ -225,11 +232,89 @@ def run_application():
     else:
         logger.error(f"错误: 找不到可执行文件: {app_path}")
 
+# 检查 winget 是否可用
+def check_winget():
+    """检查 Windows 包管理器 winget 是否可用"""
+    try:
+        result = subprocess.run(["winget", "--version"], capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            logger.info(f"找到 winget: {result.stdout.strip()}")
+            return True
+        return False
+    except Exception:
+        return False
+
+# 使用 winget 安装 CMake
+def install_cmake_winget():
+    """使用 winget 安装 CMake"""
+    logger.info("尝试使用 winget 安装 CMake...")
+    try:
+        result = subprocess.run(
+            ["winget", "install", "--id", "Kitware.CMake", "--accept-package-agreements", "--accept-source-agreements"],
+            check=True,
+            timeout=300
+        )
+        if result.returncode == 0:
+            logger.info("CMake 安装成功！")
+            # 刷新环境变量
+            os.environ["PATH"] = os.environ["PATH"] + ";C:\\Program Files\\CMake\\bin"
+            return True
+        return False
+    except Exception as e:
+        logger.error(f"使用 winget 安装 CMake 失败: {str(e)}")
+        return False
+
+# 使用 winget 安装 Visual Studio Build Tools
+def install_msvc_winget():
+    """使用 winget 安装 Visual Studio Build Tools"""
+    logger.info("尝试使用 winget 安装 Visual Studio Build Tools...")
+    try:
+        # 安装 Visual Studio Build Tools 并包含 C++ 工作负载
+        result = subprocess.run(
+            [
+                "winget", "install", "--id", "Microsoft.VisualStudio.2022.BuildTools",
+                "--override", "--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools;includeRecommended",
+                "--accept-package-agreements", "--accept-source-agreements"
+            ],
+            check=True,
+            timeout=600  # 给足够的时间安装
+        )
+        if result.returncode == 0:
+            logger.info("Visual Studio Build Tools 安装成功！")
+            return True
+        return False
+    except Exception as e:
+        logger.error(f"使用 winget 安装 MSVC 失败: {str(e)}")
+        return False
+
+# 使用 winget 安装 MinGW
+def install_mingw_winget():
+    """使用 winget 安装 MinGW-w64"""
+    logger.info("尝试使用 winget 安装 MinGW-w64...")
+    try:
+        # 使用 MSYS2 安装 MinGW
+        result = subprocess.run(
+            ["winget", "install", "--id", "MSYS2.MSYS2", "--accept-package-agreements", "--accept-source-agreements"],
+            check=True,
+            timeout=300
+        )
+        if result.returncode == 0:
+            logger.info("MinGW-w64 安装成功！")
+            # 添加 MinGW 到 PATH
+            os.environ["PATH"] = os.environ["PATH"] + ";C:\\msys64\\ucrt64\\bin"
+            return True
+        return False
+    except Exception as e:
+        logger.error(f"使用 winget 安装 MinGW 失败: {str(e)}")
+        return False
+
 # 命令行参数处理
 def parse_args():
     """解析命令行参数"""
     import argparse
     parser = argparse.ArgumentParser(description='构建脚本 - 用于自动安装依赖、构建项目并运行应用')
+    parser.add_argument('--install-mode', choices=list(INSTALL_MODES.keys()), default='auto', 
+                       help=f'安装模式: {", ".join([f"{k} ({v})" for k, v in INSTALL_MODES.items()])}')
     parser.add_argument('--skip-easyx', action='store_true', help='跳过 EasyX 安装检查')
     parser.add_argument('--skip-cmake', action='store_true', help='跳过 CMake 安装检查')
     parser.add_argument('--build-only', action='store_true', help='只构建项目，不运行')
@@ -277,6 +362,30 @@ def build_project(clean=False):
         # 回到原始目录
         os.chdir(original_dir)
 
+# 显示欢迎信息和安装指南
+def show_welcome():
+    """显示欢迎信息和快速安装指南"""
+    logger.info("=" * 60)
+    logger.info(f"{PROJECT_NAME} 构建系统")
+    logger.info("=" * 60)
+    logger.info("")
+    logger.info("快速开始:")
+    logger.info("1. 确保以管理员身份运行此脚本")
+    logger.info("2. 脚本会尝试自动安装所需依赖")
+    logger.info("3. 如果自动安装失败，请参考手动安装指南")
+    logger.info("")
+    logger.info("命令行参数:")
+    logger.info("  --install-mode=auto    自动安装（默认）")
+    logger.info("  --install-mode=winget  使用 winget 安装")
+    logger.info("  --install-mode=manual  仅检查，不自动安装")
+    logger.info("  --skip-easyx           跳过 EasyX 安装检查")
+    logger.info("  --skip-cmake           跳过 CMake 安装检查")
+    logger.info("  --build-only           只构建，不运行")
+    logger.info("  --clean                清理旧构建文件")
+    logger.info("  --verbose              显示详细输出")
+    logger.info("")
+    logger.info("=" * 60)
+
 # 主函数
 def main():
     # 解析命令行参数
@@ -286,8 +395,8 @@ def main():
     if args.verbose:
         logger.setLevel(logging.DEBUG)
     
-    logger.info(f"=== {PROJECT_NAME} 自动构建脚本 ===")
-    logger.info("正在检查系统环境...")
+    # 显示欢迎信息
+    show_welcome()
     
     # 检查Python版本
     if not check_python_version():
@@ -303,32 +412,68 @@ def main():
         run_as_admin()
         return 0
     
+    # 检查 winget 是否可用（仅在自动模式下）
+    winget_available = False
+    if args.install_mode in ["auto", "winget"]:
+        winget_available = check_winget()
+        if winget_available:
+            logger.info("✅ winget 可用，将尝试使用它安装依赖")
+        else:
+            logger.warning("⚠️ winget 不可用，将尝试其他安装方法")
+    
     try:
         # 检查并安装 EasyX
         if not args.skip_easyx:
             easyx_installed, _ = check_easyx()
             if not easyx_installed:
-                install_easyx()
+                if args.install_mode != "manual":
+                    install_easyx()
             else:
-                logger.info("EasyX 已安装")
+                logger.info("✅ EasyX 已安装")
         else:
-            logger.info("跳过 EasyX 安装检查")
+            logger.info("⏭️ 跳过 EasyX 安装检查")
         
         # 检查并安装 CMake
         if not args.skip_cmake:
             if not command_exists("cmake"):
-                if not install_cmake():
+                if args.install_mode == "manual":
+                    logger.error("❌ 请手动安装 CMake")
+                    return 1
+                # 先尝试 winget，失败则用传统方法
+                if winget_available and install_cmake_winget():
+                    pass  # winget 安装成功
+                elif not install_cmake():
                     return 1
             else:
-                logger.info("CMake 已安装")
+                logger.info("✅ CMake 已安装")
         else:
-            logger.info("跳过 CMake 安装检查")
+            logger.info("⏭️ 跳过 CMake 安装检查")
         
-        # 检查编译器
-        if not check_compiler():
-            return 1
+        # 检查并安装编译器
+        compiler_found = command_exists("cl") or command_exists("g++")
+        if not compiler_found:
+            if args.install_mode == "manual":
+                if not check_compiler():
+                    return 1
+            else:
+                # 尝试使用 winget 安装编译器
+                if winget_available:
+                    logger.info("尝试自动安装 C++ 编译器...")
+                    # 优先尝试 MSVC
+                    if not install_msvc_winget():
+                        # MSVC 失败则尝试 MinGW
+                        logger.warning("MSVC 安装失败，尝试 MinGW...")
+                        install_mingw_winget()
+                
+                # 再次检查编译器
+                if not check_compiler():
+                    logger.error("❌ 编译器安装失败，请手动安装")
+                    return 1
         
         # 构建项目
+        logger.info("=" * 60)
+        logger.info("开始构建项目...")
+        logger.info("=" * 60)
         if not build_project(clean=args.clean):
             return 1
         
@@ -336,14 +481,21 @@ def main():
         if not args.build_only:
             run_application()
         else:
-            logger.info("构建完成，跳过运行步骤")
+            logger.info("✅ 构建完成，跳过运行步骤")
         
-        logger.info("构建脚本执行完成!")
+        logger.info("=" * 60)
+        logger.info("🎉 构建脚本执行完成!")
+        logger.info("=" * 60)
         return 0
     except Exception as e:
-        logger.error(f"构建过程中发生错误: {str(e)}")
+        logger.error(f"❌ 构建过程中发生错误: {str(e)}")
         import traceback
         logger.debug(traceback.format_exc())
+        logger.info("")
+        logger.info("💡 提示:")
+        logger.info("1. 请确保以管理员身份运行")
+        logger.info("2. 如果自动安装失败，请参考手动安装指南")
+        logger.info("3. 运行 --help 查看更多选项")
         return 1
 
 if __name__ == "__main__":
