@@ -36,8 +36,13 @@ logger = logging.getLogger(__name__)
 
 # 全局变量
 PROJECT_NAME = "huaBan-pro"
-EASYX_URL = "https://easyx.cn/download/EasyX_20240913(beta).exe"
+# 注意：EasyX 官方下载链接可能会变化，请访问官网获取最新版本
+EASYX_URL = "https://easyx.cn/download/EasyX_20241018.exe"  # 更新为最新版本
+EASYX_WEBSITE = "https://easyx.cn/"
 CMAKE_URL = "https://github.com/Kitware/CMake/releases/download/v3.30.3/cmake-3.30.3-windows-x86_64.zip"
+CMAKE_WEBSITE = "https://cmake.org/download/"
+MSVC_WEBSITE = "https://visualstudio.microsoft.com/visual-cpp-build-tools/"
+MINGW_WEBSITE = "https://www.mingw-w64.org/downloads/"
 
 # 检查Python版本
 def check_python_version():
@@ -110,6 +115,7 @@ def install_easyx():
     easyx_exe = os.path.join(temp_dir, "EasyX.exe")
     
     try:
+        logger.info(f"尝试从官方网站下载: {EASYX_URL}")
         download_file(EASYX_URL, easyx_exe)
         
         logger.info("运行 EasyX 安装程序...")
@@ -121,7 +127,14 @@ def install_easyx():
         
         logger.info("EasyX 安装完成")
     except Exception as e:
-        logger.error(f"EasyX 安装失败: {str(e)}")
+        logger.error(f"EasyX 自动安装失败: {str(e)}")
+        logger.error("=====================================")
+        logger.error("请手动安装 EasyX:")
+        logger.error(f"1. 访问 EasyX 官网: {EASYX_WEBSITE}")
+        logger.error("2. 下载最新版本的 EasyX 安装包")
+        logger.error("3. 双击安装到默认路径")
+        logger.error("4. 确认路径 C:\\Program Files (x86)\\EasyX\\include\\graphics.h 存在")
+        logger.error("=====================================")
         raise
 
 # 安装 CMake
@@ -185,17 +198,57 @@ def check_compiler():
         return True
     
     logger.error("未找到 C++ 编译器")
-    logger.error("请安装以下之一:")
-    logger.error("1. Visual Studio Build Tools: https://visualstudio.microsoft.com/visual-cpp-build-tools/")
-    logger.error("2. MinGW-w64: https://www.mingw-w64.org/downloads/")
+    logger.error("=====================================")
+    logger.error("请安装以下编译器之一:")
+    logger.error("方案 A（推荐）: Visual Studio Build Tools")
+    logger.error(f"   1. 访问: {MSVC_WEBSITE}")
+    logger.error("   2. 下载并运行安装程序")
+    logger.error("   3. 勾选 '使用 C++ 的桌面开发'")
+    logger.error("   4. 完成安装")
+    logger.error("")
+    logger.error("方案 B: MinGW-w64")
+    logger.error(f"   1. 访问: {MINGW_WEBSITE}")
+    logger.error("   2. 推荐使用 MSYS2 安装")
+    logger.error("   3. 安装后运行: pacman -S mingw-w64-ucrt-x86_64-gcc")
+    logger.error("   4. 将 MinGW/bin 添加到系统 PATH")
+    logger.error("=====================================")
     return False
 
+
+
+# 运行应用
+def run_application():
+    app_path = os.path.join("build", "bin", f"{PROJECT_NAME}.exe")
+    if os.path.exists(app_path):
+        logger.info(f"运行应用: {app_path}")
+        subprocess.run([app_path])
+    else:
+        logger.error(f"错误: 找不到可执行文件: {app_path}")
+
+# 命令行参数处理
+def parse_args():
+    """解析命令行参数"""
+    import argparse
+    parser = argparse.ArgumentParser(description='构建脚本 - 用于自动安装依赖、构建项目并运行应用')
+    parser.add_argument('--skip-easyx', action='store_true', help='跳过 EasyX 安装检查')
+    parser.add_argument('--skip-cmake', action='store_true', help='跳过 CMake 安装检查')
+    parser.add_argument('--build-only', action='store_true', help='只构建项目，不运行')
+    parser.add_argument('--clean', action='store_true', help='构建前清理旧的构建文件')
+    parser.add_argument('--verbose', action='store_true', help='显示详细输出')
+    return parser.parse_args()
+
 # 构建项目
-def build_project():
+def build_project(clean=False):
     logger.info("开始构建项目...")
     
     # 创建构建目录
     build_dir = "build"
+    
+    # 清理旧的构建文件
+    if clean and os.path.exists(build_dir):
+        logger.info("清理旧的构建文件...")
+        shutil.rmtree(build_dir)
+    
     if not os.path.exists(build_dir):
         os.makedirs(build_dir)
     
@@ -224,17 +277,15 @@ def build_project():
         # 回到原始目录
         os.chdir(original_dir)
 
-# 运行应用
-def run_application():
-    app_path = os.path.join("build", "bin", f"{PROJECT_NAME}.exe")
-    if os.path.exists(app_path):
-        logger.info(f"运行应用: {app_path}")
-        subprocess.run([app_path])
-    else:
-        logger.error(f"错误: 找不到可执行文件: {app_path}")
-
 # 主函数
 def main():
+    # 解析命令行参数
+    args = parse_args()
+    
+    # 如果启用详细模式，设置日志级别为DEBUG
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+    
     logger.info(f"=== {PROJECT_NAME} 自动构建脚本 ===")
     logger.info("正在检查系统环境...")
     
@@ -254,34 +305,45 @@ def main():
     
     try:
         # 检查并安装 EasyX
-        easyx_installed, _ = check_easyx()
-        if not easyx_installed:
-            install_easyx()
+        if not args.skip_easyx:
+            easyx_installed, _ = check_easyx()
+            if not easyx_installed:
+                install_easyx()
+            else:
+                logger.info("EasyX 已安装")
         else:
-            logger.info("EasyX 已安装")
+            logger.info("跳过 EasyX 安装检查")
         
         # 检查并安装 CMake
-        if not command_exists("cmake"):
-            if not install_cmake():
-                return 1
+        if not args.skip_cmake:
+            if not command_exists("cmake"):
+                if not install_cmake():
+                    return 1
+            else:
+                logger.info("CMake 已安装")
         else:
-            logger.info("CMake 已安装")
+            logger.info("跳过 CMake 安装检查")
         
         # 检查编译器
         if not check_compiler():
             return 1
         
         # 构建项目
-        if not build_project():
+        if not build_project(clean=args.clean):
             return 1
         
         # 运行应用
-        run_application()
+        if not args.build_only:
+            run_application()
+        else:
+            logger.info("构建完成，跳过运行步骤")
         
         logger.info("构建脚本执行完成!")
         return 0
     except Exception as e:
         logger.error(f"构建过程中发生错误: {str(e)}")
+        import traceback
+        logger.debug(traceback.format_exc())
         return 1
 
 if __name__ == "__main__":
