@@ -27,5 +27,10 @@ public:
     void Erase(Canvas& canvas, int gridX, int gridY);
     void Bucket(Canvas& canvas, int gridX, int gridY);
     
+    // 几何工具
+    void DrawLine(Canvas& canvas, int startX, int startY, int endX, int endY);
+    void DrawRectangle(Canvas& canvas, int startX, int startY, int endX, int endY);
+    void DrawCircle(Canvas& canvas, int centerX, int centerY, int radius);
+    
     void Apply(Canvas& canvas, int gridX, int gridY);
 };

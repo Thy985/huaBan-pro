@@ -4,6 +4,8 @@
 #include "history.h"
 #include "ui.h"
 #include "fileio.h"
+#include "filter.h"
+#include "animation.h"
 
 class PixelEditor {
 private:
@@ -11,15 +13,26 @@ private:
     Tools tools;
     History history;
     UI ui;
+    Animation animation;
     
     bool isMouseDown;
     bool isDraggingCanvas;
     int prevMouseX;
     int prevMouseY;
     
+    // 几何工具状态
+    bool isDrawingShape;
+    int startGridX;
+    int startGridY;
+    
+    // 动画播放状态
+    bool isPlayingAnimation;
+    DWORD lastFrameTime;
+    
     void HandleMouse();
     void HandleKeys();
     void ProcessButtonClick(Button* btn);
+    void HandleAnimation();
     
 public:
     PixelEditor();
@@ -30,7 +43,12 @@ PixelEditor::PixelEditor()
     : isMouseDown(false)
     , isDraggingCanvas(false)
     , prevMouseX(0)
-    , prevMouseY(0) {
+    , prevMouseY(0)
+    , isDrawingShape(false)
+    , startGridX(0)
+    , startGridY(0)
+    , isPlayingAnimation(false)
+    , lastFrameTime(0) {
 }
 
 void PixelEditor::ProcessButtonClick(Button* btn) {
@@ -67,6 +85,15 @@ void PixelEditor::ProcessButtonClick(Button* btn) {
         case BTN_BUCKET:
             tools.SetTool(TOOL_BUCKET);
             break;
+        case BTN_LINE:
+            tools.SetTool(TOOL_LINE);
+            break;
+        case BTN_RECTANGLE:
+            tools.SetTool(TOOL_RECTANGLE);
+            break;
+        case BTN_CIRCLE:
+            tools.SetTool(TOOL_CIRCLE);
+            break;
         case BTN_SIZE_1:
             tools.SetBrushSize(1);
             break;
@@ -75,6 +102,76 @@ void PixelEditor::ProcessButtonClick(Button* btn) {
             break;
         case BTN_SIZE_3:
             tools.SetBrushSize(3);
+            break;
+        // 滤镜按钮
+        case BTN_BRIGHTNESS:
+            history.SaveState(canvas);
+            Filter::AdjustBrightness(canvas, 30); // 增加30亮度
+            break;
+        case BTN_CONTRAST:
+            history.SaveState(canvas);
+            Filter::AdjustContrast(canvas, 30); // 增加30对比度
+            break;
+        case BTN_BLUR:
+            history.SaveState(canvas);
+            Filter::ApplyBlur(canvas, 2); // 模糊半径2
+            break;
+        case BTN_SHARPEN:
+            history.SaveState(canvas);
+            Filter::ApplySharpen(canvas);
+            break;
+        case BTN_GRAYSCALE:
+            history.SaveState(canvas);
+            Filter::ApplyGrayscale(canvas);
+            break;
+        case BTN_INVERT:
+            history.SaveState(canvas);
+            Filter::ApplyInvert(canvas);
+            break;
+        // 动画按钮
+        case BTN_ADD_FRAME:
+            animation.AddFrame();
+            // 从当前画布复制到新帧
+            AnimationFrame* newFrame = animation.GetCurrentFrame();
+            if (newFrame) {
+                newFrame->CopyFrom(canvas);
+            }
+            break;
+        case BTN_REMOVE_FRAME:
+            animation.RemoveFrame(animation.GetCurrentFrameIndex());
+            // 显示当前帧
+            AnimationFrame* currentFrame = animation.GetCurrentFrame();
+            if (currentFrame) {
+                currentFrame->CopyTo(canvas);
+            }
+            break;
+        case BTN_DUPLICATE_FRAME:
+            animation.DuplicateFrame(animation.GetCurrentFrameIndex());
+            break;
+        case BTN_PREV_FRAME:
+            animation.PreviousFrame();
+            // 显示当前帧
+            currentFrame = animation.GetCurrentFrame();
+            if (currentFrame) {
+                currentFrame->CopyTo(canvas);
+            }
+            break;
+        case BTN_NEXT_FRAME:
+            animation.NextFrame();
+            // 显示当前帧
+            currentFrame = animation.GetCurrentFrame();
+            if (currentFrame) {
+                currentFrame->CopyTo(canvas);
+            }
+            break;
+        case BTN_PLAY_ANIMATION:
+            isPlayingAnimation = !isPlayingAnimation;
+            if (isPlayingAnimation) {
+                lastFrameTime = GetTickCount();
+            }
+            break;
+        case BTN_EXPORT_GIF:
+            animation.ExportToGIF("animation.gif");
             break;
     }
 }
@@ -108,11 +205,44 @@ void PixelEditor::HandleMouse() {
             } else {
                 int gridX, gridY;
                 if (canvas.ScreenToGrid(msg.x, msg.y, gridX, gridY)) {
-                    history.SaveState(canvas);
-                    tools.Apply(canvas, gridX, gridY);
+                    ToolType currentTool = tools.GetTool();
+                    if (currentTool == TOOL_LINE || currentTool == TOOL_RECTANGLE || currentTool == TOOL_CIRCLE) {
+                        // 开始绘制形状
+                        isDrawingShape = true;
+                        startGridX = gridX;
+                        startGridY = gridY;
+                    } else {
+                        // 普通工具
+                        history.SaveState(canvas);
+                        tools.Apply(canvas, gridX, gridY);
+                    }
                 }
             }
         } else if (msg.uMsg == WM_LBUTTONUP) {
+            if (isDrawingShape) {
+                // 完成形状绘制
+                int gridX, gridY;
+                if (canvas.ScreenToGrid(msg.x, msg.y, gridX, gridY)) {
+                    history.SaveState(canvas);
+                    ToolType currentTool = tools.GetTool();
+                    switch (currentTool) {
+                        case TOOL_LINE:
+                            tools.DrawLine(canvas, startGridX, startGridY, gridX, gridY);
+                            break;
+                        case TOOL_RECTANGLE:
+                            tools.DrawRectangle(canvas, startGridX, startGridY, gridX, gridY);
+                            break;
+                        case TOOL_CIRCLE:
+                            // 计算半径
+                            int radius = (int)sqrt((gridX - startGridX) * (gridX - startGridX) + (gridY - startGridY) * (gridY - startGridY));
+                            tools.DrawCircle(canvas, startGridX, startGridY, radius);
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                isDrawingShape = false;
+            }
             isMouseDown = false;
             isDraggingCanvas = false;
         } else if (msg.uMsg == WM_MOUSEMOVE) {
@@ -126,9 +256,13 @@ void PixelEditor::HandleMouse() {
                         prevMouseY = msg.y;
                     }
                 } else if (msg.x >= UI_WIDTH) {
-                    int gridX, gridY;
-                    if (canvas.ScreenToGrid(msg.x, msg.y, gridX, gridY)) {
-                        tools.Apply(canvas, gridX, gridY);
+                    if (isDrawingShape) {
+                        // 这里可以添加实时预览，但需要额外的逻辑
+                    } else {
+                        int gridX, gridY;
+                        if (canvas.ScreenToGrid(msg.x, msg.y, gridX, gridY)) {
+                            tools.Apply(canvas, gridX, gridY);
+                        }
                     }
                 }
             }
@@ -172,6 +306,21 @@ void PixelEditor::HandleKeys() {
     }
 }
 
+void PixelEditor::HandleAnimation() {
+    if (isPlayingAnimation) {
+        DWORD currentTime = GetTickCount();
+        AnimationFrame* currentFrame = animation.GetCurrentFrame();
+        if (currentFrame && currentTime - lastFrameTime >= currentFrame->GetDuration()) {
+            animation.NextFrame();
+            currentFrame = animation.GetCurrentFrame();
+            if (currentFrame) {
+                currentFrame->CopyTo(canvas);
+            }
+            lastFrameTime = currentTime;
+        }
+    }
+}
+
 void PixelEditor::Run() {
     initgraph(WIN_W, WIN_H);
     BeginBatchDraw();
@@ -187,6 +336,7 @@ void PixelEditor::Run() {
         
         HandleMouse();
         HandleKeys();
+        HandleAnimation();
         
         Sleep(10);
     }

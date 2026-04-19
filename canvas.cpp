@@ -8,28 +8,45 @@ Canvas::Canvas()
     , offsetY(0)
     , showGrid(true)
     , backgroundStyle(0) {
-    Clear();
+}
+
+LayerManager& Canvas::GetLayerManager() {
+    return layerManager;
+}
+
+const LayerManager& Canvas::GetLayerManager() const {
+    return layerManager;
 }
 
 void Canvas::Clear() {
-    for (int x = 0; x < GRID_NUM; x++) {
-        for (int y = 0; y < GRID_NUM; y++) {
-            data[x][y] = BLACK;
-        }
+    for (int i = 0; i < layerManager.GetLayerCount(); i++) {
+        layerManager.GetLayer(i)->Clear();
     }
     needUpdate = true;
 }
 
 void Canvas::SetPixel(int x, int y, COLORREF color) {
     if (x >= 0 && x < GRID_NUM && y >= 0 && y < GRID_NUM) {
-        data[x][y] = color;
-        needUpdate = true;
+        Layer* activeLayer = layerManager.GetActiveLayer();
+        if (activeLayer) {
+            activeLayer->SetPixel(x, y, color);
+            needUpdate = true;
+        }
     }
 }
 
 COLORREF Canvas::GetPixel(int x, int y) const {
     if (x >= 0 && x < GRID_NUM && y >= 0 && y < GRID_NUM) {
-        return data[x][y];
+        // 从顶层图层开始检查，返回第一个非透明像素
+        for (int i = layerManager.GetLayerCount() - 1; i >= 0; i--) {
+            const Layer* layer = layerManager.GetLayer(i);
+            if (layer && layer->IsVisible()) {
+                COLORREF color = layer->GetPixel(x, y);
+                if (color != RGB(255, 0, 255)) { // 检查是否不是透明色
+                    return color;
+                }
+            }
+        }
     }
     return BLACK;
 }
@@ -64,19 +81,9 @@ void Canvas::Draw() {
     int canvasStartY = offsetY;
     int cellDrawSize = CELL_SIZE * zoomLevel;
 
-    // 绘制像素
-    for (int x = 0; x < GRID_NUM; x++) {
-        for (int y = 0; y < GRID_NUM; y++) {
-            int px = canvasStartX + x * cellDrawSize;
-            int py = canvasStartY + y * cellDrawSize;
-            
-            COLORREF color = data[x][y];
-            if (color != BLACK) {
-                setfillcolor(color);
-                solidrectangle(px, py, px + cellDrawSize, py + cellDrawSize);
-            }
-        }
-    }
+    // 绘制所有图层
+    HDC hdc = GetImageHDC();
+    layerManager.DrawAll(hdc, canvasStartX, canvasStartY, cellDrawSize);
 
     // 绘制网格
     if (showGrid) {
@@ -140,26 +147,39 @@ bool Canvas::ScreenToGrid(int screenX, int screenY, int& gridX, int& gridY) cons
 }
 
 void Canvas::CopyFrom(const Canvas& other) {
-    for (int x = 0; x < GRID_NUM; x++) {
-        for (int y = 0; y < GRID_NUM; y++) {
-            data[x][y] = other.data[x][y];
+    // 这里简化处理，只复制活动图层
+    Layer* activeLayer = layerManager.GetActiveLayer();
+    const Layer* otherActiveLayer = other.layerManager.GetActiveLayer();
+    if (activeLayer && otherActiveLayer) {
+        for (int x = 0; x < GRID_NUM; x++) {
+            for (int y = 0; y < GRID_NUM; y++) {
+                activeLayer->SetPixel(x, y, otherActiveLayer->GetPixel(x, y));
+            }
         }
     }
     needUpdate = true;
 }
 
 void Canvas::CopyTo(COLORREF dest[GRID_NUM][GRID_NUM]) const {
-    for (int x = 0; x < GRID_NUM; x++) {
-        for (int y = 0; y < GRID_NUM; y++) {
-            dest[x][y] = data[x][y];
+    // 这里简化处理，只复制活动图层
+    const Layer* activeLayer = layerManager.GetActiveLayer();
+    if (activeLayer) {
+        for (int x = 0; x < GRID_NUM; x++) {
+            for (int y = 0; y < GRID_NUM; y++) {
+                dest[x][y] = activeLayer->GetPixel(x, y);
+            }
         }
     }
 }
 
 void Canvas::CopyFrom(const COLORREF src[GRID_NUM][GRID_NUM]) {
-    for (int x = 0; x < GRID_NUM; x++) {
-        for (int y = 0; y < GRID_NUM; y++) {
-            data[x][y] = src[x][y];
+    // 这里简化处理，只复制到活动图层
+    Layer* activeLayer = layerManager.GetActiveLayer();
+    if (activeLayer) {
+        for (int x = 0; x < GRID_NUM; x++) {
+            for (int y = 0; y < GRID_NUM; y++) {
+                activeLayer->SetPixel(x, y, src[x][y]);
+            }
         }
     }
     needUpdate = true;

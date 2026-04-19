@@ -18,9 +18,26 @@ void UI::InitButtons() {
         { 10, 130, 60, 30, L"画笔", BTN_PEN, true, true, false, false },
         { 80, 130, 60, 30, L"橡皮", BTN_ERASER, true, true, false, false },
         { 150, 130, 50, 30, L"填充", BTN_BUCKET, true, true, false, false },
-        { 10, 170, 60, 30, L"1x", BTN_SIZE_1, true, true, false, false },
-        { 80, 170, 60, 30, L"2x", BTN_SIZE_2, true, true, false, false },
-        { 150, 170, 50, 30, L"3x", BTN_SIZE_3, true, true, false, false },
+        { 10, 170, 60, 30, L"直线", BTN_LINE, true, true, false, false },
+        { 80, 170, 60, 30, L"矩形", BTN_RECTANGLE, true, true, false, false },
+        { 150, 170, 50, 30, L"圆形", BTN_CIRCLE, true, true, false, false },
+        { 10, 210, 60, 30, L"1x", BTN_SIZE_1, true, true, false, false },
+        { 80, 210, 60, 30, L"2x", BTN_SIZE_2, true, true, false, false },
+        { 150, 210, 50, 30, L"3x", BTN_SIZE_3, true, true, false, false },
+        { 10, 250, 60, 30, L"亮度", BTN_BRIGHTNESS, true, true, false, false },
+        { 80, 250, 60, 30, L"对比度", BTN_CONTRAST, true, true, false, false },
+        { 150, 250, 50, 30, L"模糊", BTN_BLUR, true, true, false, false },
+        { 10, 290, 60, 30, L"锐化", BTN_SHARPEN, true, true, false, false },
+        { 80, 290, 60, 30, L"灰度", BTN_GRAYSCALE, true, true, false, false },
+        { 150, 290, 50, 30, L"反色", BTN_INVERT, true, true, false, false },
+        // 动画按钮
+        { 10, 330, 60, 30, L"添加帧", BTN_ADD_FRAME, true, true, false, false },
+        { 80, 330, 60, 30, L"删除帧", BTN_REMOVE_FRAME, true, true, false, false },
+        { 150, 330, 50, 30, L"复制帧", BTN_DUPLICATE_FRAME, true, true, false, false },
+        { 10, 370, 60, 30, L"上一帧", BTN_PREV_FRAME, true, true, false, false },
+        { 80, 370, 60, 30, L"下一帧", BTN_NEXT_FRAME, true, true, false, false },
+        { 150, 370, 50, 30, L"播放", BTN_PLAY_ANIMATION, true, true, false, false },
+        { 10, 410, 190, 30, L"导出GIF", BTN_EXPORT_GIF, true, true, false, false },
     };
 }
 
@@ -57,10 +74,13 @@ void UI::DrawButtons(const Tools& tools) {
             btnColor = COLOR_HOVER;
         }
         
-        if (btn.id >= BTN_PEN && btn.id <= BTN_BUCKET) {
+        if (btn.id >= BTN_PEN && btn.id <= BTN_CIRCLE) {
             if ((btn.id == BTN_PEN && tools.GetTool() == TOOL_PEN) ||
                 (btn.id == BTN_ERASER && tools.GetTool() == TOOL_ERASER) ||
-                (btn.id == BTN_BUCKET && tools.GetTool() == TOOL_BUCKET)) {
+                (btn.id == BTN_BUCKET && tools.GetTool() == TOOL_BUCKET) ||
+                (btn.id == BTN_LINE && tools.GetTool() == TOOL_LINE) ||
+                (btn.id == BTN_RECTANGLE && tools.GetTool() == TOOL_RECTANGLE) ||
+                (btn.id == BTN_CIRCLE && tools.GetTool() == TOOL_CIRCLE)) {
                 btnColor = COLOR_ACT;
             }
         }
@@ -89,39 +109,35 @@ void UI::DrawButtons(const Tools& tools) {
 
 void UI::DrawPalette() {
     int paletteX = 20;
-    int paletteY = 250;
-    int colorSize = 24;
-    int colorSpacing = 30;
+    int paletteY = 450;
+    int colorSize = 20;
+    int colorSpacing = 25;
     
     settextcolor(WHITE);
-    outtextxy(paletteX, paletteY - 25, L"调色板");
+    outtextxy(paletteX, paletteY - 20, L"调色板");
     
     for (int i = 0; i < 16; i++) {
-        int x = paletteX + (i % 4) * colorSpacing;
-        int y = paletteY + (i / 4) * colorSpacing;
+        int x = paletteX + (i % 8) * colorSpacing;
+        int y = paletteY + (i / 8) * colorSpacing;
         
         setfillcolor(palette[i]);
         setlinecolor(RGB(100, 100, 100));
-        setlinestyle(PS_SOLID, 2);
-        fillrectangle(x, y, x + colorSize, y + colorSize);
         setlinestyle(PS_SOLID, 1);
-        
-        if (i % 4 == 0) {
-            settextcolor(WHITE);
-            outtextxy(x + colorSize + 5, y, paletteNames[i]);
-        }
+        fillrectangle(x, y, x + colorSize, y + colorSize);
+        rectangle(x, y, x + colorSize, y + colorSize);
     }
     
-    paletteY += 130;
-    outtextxy(paletteX, paletteY - 25, L"最近使用");
+    paletteY += 60;
+    outtextxy(paletteX, paletteY - 20, L"最近使用");
     
     for (int i = 0; i < recentColorCount && i < 8; i++) {
-        int x = paletteX + (i % 4) * colorSpacing;
-        int y = paletteY + (i / 4) * colorSpacing;
+        int x = paletteX + (i % 8) * colorSpacing;
+        int y = paletteY + (i / 8) * colorSpacing;
         
         setfillcolor(recentColors[i]);
         setlinecolor(RGB(100, 100, 100));
         fillrectangle(x, y, x + colorSize, y + colorSize);
+        rectangle(x, y, x + colorSize, y + colorSize);
     }
 }
 
@@ -134,6 +150,9 @@ void UI::DrawInfo(const Canvas& canvas, const Tools& tools) {
         case TOOL_PEN: toolName = L"工具: 画笔"; break;
         case TOOL_ERASER: toolName = L"工具: 橡皮"; break;
         case TOOL_BUCKET: toolName = L"工具: 填充"; break;
+        case TOOL_LINE: toolName = L"工具: 直线"; break;
+        case TOOL_RECTANGLE: toolName = L"工具: 矩形"; break;
+        case TOOL_CIRCLE: toolName = L"工具: 圆形"; break;
     }
     outtextxy(UI_WIDTH + 10, 10, toolName);
     
@@ -149,6 +168,14 @@ void UI::DrawInfo(const Canvas& canvas, const Tools& tools) {
     wchar_t zoomText[50];
     swprintf(zoomText, 50, L"缩放: %d%%", canvas.GetZoom() * 100);
     outtextxy(WIN_W - 120, 10, zoomText);
+    
+    // 添加快捷键提示
+    outtextxy(UI_WIDTH + 10, 50, L"快捷键:");
+    outtextxy(UI_WIDTH + 10, 70, L"Ctrl+Z: 撤销");
+    outtextxy(UI_WIDTH + 10, 90, L"Ctrl+Y: 重做");
+    outtextxy(UI_WIDTH + 10, 110, L"Ctrl+S: 保存");
+    outtextxy(UI_WIDTH + 10, 130, L"Ctrl+拖动: 平移");
+    outtextxy(UI_WIDTH + 10, 150, L"鼠标滚轮: 缩放");
 }
 
 bool UI::IsButtonClicked(const Button& btn, int x, int y) const {
@@ -166,22 +193,22 @@ Button* UI::FindButton(int x, int y) {
 
 int UI::FindPaletteColor(int x, int y) {
     int paletteX = 20;
-    int paletteY = 250;
-    int colorSize = 24;
-    int colorSpacing = 30;
+    int paletteY = 450;
+    int colorSize = 20;
+    int colorSpacing = 25;
     
     for (int i = 0; i < 16; i++) {
-        int cx = paletteX + (i % 4) * colorSpacing;
-        int cy = paletteY + (i / 4) * colorSpacing;
+        int cx = paletteX + (i % 8) * colorSpacing;
+        int cy = paletteY + (i / 8) * colorSpacing;
         if (x >= cx && x <= cx + colorSize && y >= cy && y <= cy + colorSize) {
             return i;
         }
     }
     
-    paletteY += 130;
+    paletteY += 60;
     for (int i = 0; i < recentColorCount && i < 8; i++) {
-        int cx = paletteX + (i % 4) * colorSpacing;
-        int cy = paletteY + (i / 4) * colorSpacing;
+        int cx = paletteX + (i % 8) * colorSpacing;
+        int cy = paletteY + (i / 8) * colorSpacing;
         if (x >= cx && x <= cx + colorSize && y >= cy && y <= cy + colorSize) {
             return 16 + i;
         }

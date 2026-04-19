@@ -44,7 +44,10 @@
 enum ToolType {
     TOOL_PEN,
     TOOL_ERASER,
-    TOOL_BUCKET
+    TOOL_BUCKET,
+    TOOL_LINE,
+    TOOL_RECTANGLE,
+    TOOL_CIRCLE
 };
 
 // 按钮ID
@@ -57,9 +60,29 @@ enum ToolType {
 #define BTN_PEN         10
 #define BTN_ERASER      11
 #define BTN_BUCKET      12
+#define BTN_LINE        13
+#define BTN_RECTANGLE   14
+#define BTN_CIRCLE      15
 #define BTN_SIZE_1      20
 #define BTN_SIZE_2      21
 #define BTN_SIZE_3      22
+
+// 滤镜按钮
+#define BTN_BRIGHTNESS  30
+#define BTN_CONTRAST    31
+#define BTN_BLUR        32
+#define BTN_SHARPEN     33
+#define BTN_GRAYSCALE   34
+#define BTN_INVERT      35
+
+// 动画按钮
+#define BTN_ADD_FRAME   40
+#define BTN_REMOVE_FRAME 41
+#define BTN_DUPLICATE_FRAME 42
+#define BTN_PREV_FRAME  43
+#define BTN_NEXT_FRAME  44
+#define BTN_PLAY_ANIMATION 45
+#define BTN_EXPORT_GIF  46
 
 // ============ 数据结构 ============
 struct Button {

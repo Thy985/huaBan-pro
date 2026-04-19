@@ -1,9 +1,10 @@
 #pragma once
 #include "huaBan.h"
+#include "layer.h"
 
 class Canvas {
 private:
-    COLORREF data[GRID_NUM][GRID_NUM];
+    LayerManager layerManager;
     bool needUpdate;
     int zoomLevel;
     int offsetX, offsetY;
@@ -12,6 +13,10 @@ private:
 
 public:
     Canvas();
+    
+    // 图层管理
+    LayerManager& GetLayerManager();
+    const LayerManager& GetLayerManager() const;
     
     void Clear();
     void SetPixel(int x, int y, COLORREF color);
